@@ -1,0 +1,31 @@
+# Rust
+/target
+/target2
+
+# Solidity Contracts
+contracts/
+
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE - IntelliJ/RustRover
+.idea/*
+!.idea/runConfigurations/
+!.idea/vcs.xml
+*.iml
+
+# VS Code
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test files
+test_*.csv
+test_*.rs
+*.rcgu.o
+*.pdb

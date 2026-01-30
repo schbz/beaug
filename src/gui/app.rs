@@ -422,6 +422,7 @@ pub struct GuiApp {
     pub(crate) use_custom_rpc: bool,
     // Ledger status
     pub(crate) ledger_status: LedgerStatus,
+    pub(crate) last_stable_ledger_status: LedgerStatus, // Status before "Checking" - used for change detection
     pub(crate) ledger_status_job: Option<AsyncJob<LedgerStatus>>,
     pub(crate) last_status_check: std::time::Instant,
     // Derivation config (temporary values for editing)
@@ -520,6 +521,7 @@ impl GuiApp {
             custom_rpc: String::new(),
             use_custom_rpc: false,
             ledger_status: LedgerStatus::Unknown("Not checked yet".to_string()),
+            last_stable_ledger_status: LedgerStatus::Unknown("Not checked yet".to_string()),
             ledger_status_job: None,
             last_status_check: std::time::Instant::now(),
             config_derivation_mode,
@@ -710,14 +712,19 @@ impl GuiApp {
         // Poll Ledger status job
         if let Some(job) = &mut self.ledger_status_job {
             if let Some(res) = job.poll() {
-                match res {
-                    Ok(status) => {
-                        self.ledger_status = status;
-                    }
-                    Err(_) => {
-                        self.ledger_status = LedgerStatus::Unknown("Check failed".to_string());
-                    }
+                let new_status = match res {
+                    Ok(status) => status,
+                    Err(_) => LedgerStatus::Unknown("Check failed".to_string()),
+                };
+                
+                // Generate notification if status has meaningfully changed
+                if let Some(notification) = self.get_ledger_status_change_notification(&new_status) {
+                    self.notifications.push_back(NotificationEntry::new(notification));
                 }
+                
+                // Update both current and stable status
+                self.last_stable_ledger_status = new_status.clone();
+                self.ledger_status = new_status;
                 self.ledger_status_job = None;
             }
         }
@@ -860,6 +867,10 @@ impl GuiApp {
     fn start_ledger_status_check(&mut self) {
         let chain_id = self.config.chain_id;
         let use_native_ledger = self.user_settings.use_native_ledger;
+        // Save current status before setting to Checking (for change detection)
+        if !matches!(self.ledger_status, LedgerStatus::Checking) {
+            self.last_stable_ledger_status = self.ledger_status.clone();
+        }
         self.ledger_status = LedgerStatus::Checking;
         self.last_status_check = std::time::Instant::now();
 
@@ -892,6 +903,51 @@ impl GuiApp {
         }
     }
     
+    /// Generate a notification message if the Ledger status has meaningfully changed.
+    /// Returns None if no notification should be shown (status unchanged or not worth notifying).
+    fn get_ledger_status_change_notification(&self, new_status: &LedgerStatus) -> Option<String> {
+        // Skip notification for "Checking" state - it's transient
+        if matches!(new_status, LedgerStatus::Checking) {
+            return None;
+        }
+        
+        // Compare against last stable status (before "Checking" was set)
+        // This prevents notifications every refresh cycle when status hasn't really changed
+        let previous_stable = &self.last_stable_ledger_status;
+        
+        // Check if status has meaningfully changed from the last stable state
+        let status_changed = match (previous_stable, new_status) {
+            // Same status category - no change
+            (LedgerStatus::Connected { .. }, LedgerStatus::Connected { .. }) => false,
+            (LedgerStatus::Locked, LedgerStatus::Locked) => false,
+            (LedgerStatus::Disconnected, LedgerStatus::Disconnected) => false,
+            (LedgerStatus::Checking, _) => true, // Was checking (shouldn't happen), now has result
+            // For Unknown, only notify if the message actually changed
+            (LedgerStatus::Unknown(old_msg), LedgerStatus::Unknown(new_msg)) => old_msg != new_msg,
+            // Any other transition is a change
+            _ => true,
+        };
+        
+        if !status_changed {
+            return None;
+        }
+        
+        // Generate appropriate notification message
+        match new_status {
+            LedgerStatus::Connected { address } => {
+                let addr_str = format!("{:?}", address);
+                Some(format!(
+                    "Ledger connected: {}...{}",
+                    &addr_str[..8],
+                    &addr_str[38..42]
+                ))
+            }
+            LedgerStatus::Disconnected => Some("Ledger disconnected".to_string()),
+            LedgerStatus::Locked => Some("Ledger locked or Ethereum app closed".to_string()),
+            LedgerStatus::Unknown(msg) => Some(format!("Ledger status: {}", msg)),
+            LedgerStatus::Checking => None, // Already handled above
+        }
+    }
 
     /// Render a ledger warning message in the UI if the ledger has a connection problem.
     /// Does not show anything during "Checking" state to avoid UI flicker.

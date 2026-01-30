@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.7.1] - 2026-01-29
+
+### Fixed
+
+- Ledger connection status changes now show in the notifications window
+
+---
+
 ## [0.7.0] - 2026-01-28
 
 ### 🎉 Initial Public Release

@@ -141,6 +141,23 @@ Connect your Ledger with the Ethereum app open, and you're ready to go!
 - Device must be **unlocked** with the **Ethereum app open**
 - For contract interactions, **blind signing** may need to be enabled in Ledger settings
 
+### Local development
+
+- Install **Rust** (e.g. via [rustup](https://rustup.rs/)) and use a stable toolchain that meets `rust-version` in [`Cargo.toml`](Cargo.toml).
+- From the repository root, use `cargo build` and `cargo run` for day-to-day work; `cargo build --release` produces an optimized binary under `target/release/` (named `beaug` on Unix-like systems and `beaug.exe` on Windows).
+- **Foundry** (`cast`, `forge`) is optional; add them to your `PATH` if you use Cast backup mode or run Solidity tests in `contracts/` (see [Optional: Foundry Cast](#optional-foundry-cast-backup-mode) below).
+
+#### Developing on Windows
+
+- No extra system libraries are needed; Ledger HID communication works out of the box.
+- Debug binary: `target\debug\beaug.exe` — Release binary: `target\release\beaug.exe`
+
+#### Developing on macOS
+
+- If `cargo build` fails while linking **libusb**, install it with Homebrew: `brew install libusb`
+- On first run of a locally built binary, macOS **Privacy & Security** may prompt you to allow the app.
+- Debug binary: `target/debug/beaug` — Release binary: `target/release/beaug`
+
 ### Optional: Foundry Cast (Backup Mode)
 
 Beaug uses native HID communication with your Ledger by default — no external software required. However, if you experience issues, you can switch to Foundry's `cast` CLI as a backup in Settings.

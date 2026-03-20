@@ -1,4 +1,4 @@
-#![windows_subsystem = "windows"]
+#![cfg_attr(windows, windows_subsystem = "windows")]
 
 use anyhow::Result;
 use beaug::{config::Config, gui, operation_log};
